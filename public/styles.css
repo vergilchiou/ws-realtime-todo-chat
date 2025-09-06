@@ -1,0 +1,211 @@
+/* ==== Reset（保留） ==== */
+html,
+body,
+div,
+span,
+applet,
+object,
+iframe,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p,
+blockquote,
+pre,
+a,
+abbr,
+acronym,
+address,
+big,
+cite,
+code,
+del,
+dfn,
+em,
+img,
+ins,
+kbd,
+q,
+s,
+samp,
+small,
+strike,
+strong,
+sub,
+sup,
+tt,
+var,
+b,
+u,
+i,
+center,
+dl,
+dt,
+dd,
+ol,
+ul,
+li,
+fieldset,
+form,
+label,
+legend,
+table,
+caption,
+tbody,
+tfoot,
+thead,
+tr,
+th,
+td,
+article,
+aside,
+canvas,
+details,
+embed,
+figure,
+figcaption,
+footer,
+header,
+hgroup,
+menu,
+nav,
+output,
+ruby,
+section,
+summary,
+time,
+mark,
+audio,
+video {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  font-size: 100%;
+  font: inherit;
+  vertical-align: baseline;
+}
+
+article,
+aside,
+details,
+figcaption,
+figure,
+footer,
+header,
+hgroup,
+menu,
+nav,
+section {
+  display: block;
+}
+
+body {
+  line-height: 1;
+}
+
+ol,
+ul {
+  list-style: none;
+}
+
+blockquote,
+q {
+  quotes: none;
+}
+
+blockquote:before,
+blockquote:after,
+q:before,
+q:after {
+  content: '';
+}
+
+table {
+  border-collapse: collapse;
+  border-spacing: 0;
+}
+
+/* ==== 全域基礎 ==== */
+body {
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, 'Noto Sans TC', Arial, sans-serif;
+  background: #0e0f12;
+  color: #eaeaea;
+}
+
+/* ==== To-Do 區（避免全域覆蓋 Bootstrap，改區域化） ==== */
+.todo-container .list-group-item {
+  background: #121418;
+  border: 1px solid #222;
+  border-radius: .6rem;
+  padding: .6rem .8rem;
+  color: #eaeaea;
+  margin-bottom: .5rem;
+}
+
+.todo-container {
+  /* width: 800px; */
+  margin: 0 auto;
+  padding: 0;
+}
+
+.todo-container .form-check-label {
+  color: #fff;
+}
+
+/* ==== Chat 版面：吃滿剩餘高度、深色氣泡 ==== */
+.chat-room-container {
+  min-height: 0;
+}
+
+.chat {
+  flex: 1 1 auto;
+  min-height: 220px;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+  border: 1px solid #2f3136;
+  padding: 10px;
+  width: 100%;
+  background-color: #15171b;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* Chat bubble */
+.messageWrapper {
+  display: flex;
+  flex-direction: column;
+}
+
+.messageBubble {
+  border-radius: 20px;
+  padding: 8px 15px;
+  margin: 6px 0;
+  display: inline-block;
+}
+
+/* 收到的訊息（靠左、綠） */
+.receiving {
+  align-items: flex-start;
+}
+
+.receiving .messageBubble {
+  margin-right: 25%;
+  background-color: #129250;
+  color: #fff;
+}
+
+/* 自己送出的訊息（靠右、藍） */
+.sending {
+  align-items: flex-end;
+}
+
+.sending .messageBubble {
+  margin-left: 25%;
+  color: #fff;
+  background: linear-gradient(to bottom, #00D0EA 0%, #0085D1 100%);
+  background-attachment: fixed;
+}

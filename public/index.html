@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Realtime To-Do（Bootstrap）</title>
+
+  <!-- Bootstrap 5 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
+    integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous" />
+
+  <!-- 客製樣式 -->
+  <link rel="stylesheet" href="/public/styles.css" />
+  <script src="/utils/constants.js"></script>
+</head>
+<body>
+  <div class="container-fluid min-vh-100 py-4 px-3 d-flex flex-column">
+    <div class="row g-3 align-items-start flex-grow-1">
+      <!-- To-Do 容器 -->
+      <div class="col-12 col-lg-8">
+        <div class="todo-container w-75">
+          <h2 class="mb-0 fs-1 fw-bold text-center">Realtime To-Do</h2>
+          <div class="d-flex flex-row-reverse align-items-center justify-content-between mb-3">
+            <span id="connState" class="badge text-bg-secondary">Disconnected</span>
+          </div>
+
+          <!-- 新增待辦 -->
+          <form id="todoForm" class="mb-3" autocomplete="off">
+            <div class="input-group">
+              <input id="todoInput" type="text" class="form-control" placeholder="輸入待辦事項…" aria-label="todo input" />
+              <button class="btn btn-primary" type="submit">新增</button>
+              <button class="ms-1 btn btn-danger" type="button" id="btnClearAll">刪除全部</button>
+            </div>
+          </form>
+
+          <!-- 清單 -->
+          <ul id="todoList" class="list-group mb-2"></ul>
+
+          <!-- 空清單提示 -->
+          <div id="emptyHint" class="alert alert-secondary d-none mb-0">
+            目前沒有待辦事項
+          </div>
+        </div>
+      </div>
+
+      <!-- Chat Room 容器 -->
+      <div class="col-12 col-lg-4 d-flex flex-column">
+        <div class="chat-room-container px-5 d-flex flex-column flex-grow-1">
+          <h2 class="mb-1 fs-1 fw-bold text-center">Chat Room</h2>
+
+          <!-- 吃掉剩餘高度、內容多才滾動 -->
+          <div class="chat flex-grow-1 overflow-auto"></div>
+
+          <form id="messageForm" class="mt-2 d-flex gap-2">
+            <input type="text" id="messageBox" class="form-control" placeholder="Type your message here" />
+            <button id="send" class="btn btn-primary" title="Send" type="submit">➤</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { TODO_MESSAGE_TYPES, CHAT_MESSAGE_TYPES } = window.CHAT_CONSTANTS;
+
+    // ===== DOM =====
+    // To-Do
+    const form = document.querySelector('#todoForm');
+    const input = document.querySelector('#todoInput');
+    const list = document.querySelector('#todoList');
+    const emptyHint = document.querySelector('#emptyHint');
+    const connState = document.querySelector('#connState');
+
+    // Chat
+    const chat = document.querySelector('.chat');
+    const messageBox = document.querySelector('#messageBox');
+    const messageForm = document.querySelector('#messageForm');
+
+    // ===== 狀態 =====
+    let wsClient = null;
+    let todos = [];
+
+    // ===== 連線 =====
+    const wsProtocol = location.protocol === 'https:' ? 'wss' : 'ws';
+    wsClient = new WebSocket(`${wsProtocol}://${location.host}/ws`);
+
+    wsClient.onopen = () => {
+      setConnState('Connected', 'success');
+
+      // 廣播有人加入聊天室（可選）
+      wsClient.send(JSON.stringify({ type: CHAT_MESSAGE_TYPES.NEW_USER }));
+    };
+    wsClient.onclose = () => setConnState('Disconnected', 'secondary');
+    wsClient.onerror = () => setConnState('Error', 'danger');
+
+    wsClient.onmessage = (ev) => {
+      let msg;
+      try { msg = JSON.parse(ev.data); } catch { return; }
+      const { type, payload } = msg || {};
+
+      switch (type) {
+        // ===== To-Do =====
+        case TODO_MESSAGE_TYPES.INIT: {
+          todos = payload?.todos || [];
+          render();
+          break;
+        }
+        case TODO_MESSAGE_TYPES.TODO_ADDED: {
+          const { todo } = payload || {};
+          if (!todo) return;
+          if (!todos.some((t) => t.id === todo.id)) todos.push(todo);
+          render();
+          break;
+        }
+        case TODO_MESSAGE_TYPES.TODO_UPDATED: {
+          const { todo } = payload || {};
+          if (!todo) return;
+          const idx = todos.findIndex((t) => t.id === todo.id);
+          if (idx !== -1) todos[idx] = todo;
+          render();
+          break;
+        }
+        case TODO_MESSAGE_TYPES.TODO_DELETED: {
+          const id = Number(payload?.id);
+          todos = todos.filter((t) => t.id !== id);
+          render();
+          break;
+        }
+        case TODO_MESSAGE_TYPES.DELETE_ALL_TODO: {
+          todos = [];
+          render();
+          break;
+        }
+
+        // ===== Chat =====
+        case CHAT_MESSAGE_TYPES.NEW_USER:
+          showMessageReceived('<span class="badge rounded-pill text-bg-success">🫶 有人加入聊天室</span>', true);
+          break;
+
+        case CHAT_MESSAGE_TYPES.NEW_MESSAGE:
+          showMessageReceived(payload?.message ?? '');
+          break;
+
+        default:
+          break;
+      }
+    };
+
+    function setConnState(text, style) {
+      connState.textContent = text;
+      connState.className = 'badge';
+      connState.classList.add(`text-bg-${style}`);
+    }
+
+    // 新增待辦
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const text = (input.value || '').trim();
+      if (!text || wsClient.readyState !== WebSocket.OPEN) return;
+      wsClient.send(JSON.stringify({ type: TODO_MESSAGE_TYPES.ADD_TODO, payload: { text } }));
+      input.value = '';
+      input.focus();
+    });
+
+    // 刪除全部
+    document.querySelector('#btnClearAll').onclick = () => {
+      if (!wsClient || wsClient.readyState !== WebSocket.OPEN) return;
+      wsClient.send(JSON.stringify({ type: TODO_MESSAGE_TYPES.DELETE_ALL_TODO, payload: {} }));
+    };
+
+    // 切換完成
+    list.addEventListener('change', (e) => {
+      const el = e.target;
+      if (el.matches('input[type="checkbox"][data-id]')) {
+        const id = Number(el.dataset.id);
+        if (wsClient.readyState === WebSocket.OPEN) {
+          wsClient.send(JSON.stringify({ type: TODO_MESSAGE_TYPES.TOGGLE_TODO, payload: { id } }));
+        }
+      }
+    });
+
+    // 刪除 & 編輯單筆    
+    list.addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-id]');
+      if (!btn) return;
+      const id = Number(btn.dataset.id);
+      const action = btn.dataset.action;
+      const li = btn.closest('li');
+
+      if (action === 'delete') {
+        if (wsClient.readyState === WebSocket.OPEN) {
+          wsClient.send(JSON.stringify({ type: TODO_MESSAGE_TYPES.DELETE_TODO, payload: { id } }));
+        }
+        return;
+      }
+
+      if (action === 'edit') {
+        enterEditMode(li, id);
+        return;
+      }
+
+      if (action === 'save') {
+        const input = li.querySelector('input.form-control[data-role="edit-input"]');
+        const newText = (input?.value || '').trim();
+        if (!newText) { input?.focus(); return; }
+        if (wsClient.readyState === WebSocket.OPEN) {
+          wsClient.send(JSON.stringify({
+            type: TODO_MESSAGE_TYPES.UPDATE_TODO,
+            payload: { id, text: newText }
+          }));
+        }
+        // 交給伺服器廣播 TODO_UPDATED 後再 render()
+        // 為避免跳動，可先離開編輯態（UI 會被後續 render 覆蓋）
+        exitEditMode(li);
+        return;
+      }
+
+      if (action === 'cancel') {
+        exitEditMode(li);
+        return;
+      }
+    });
+
+    // 編輯之 enterEditMode
+    function enterEditMode(li, id) {
+      if (!li || li.dataset.editing === '1') return;
+      li.dataset.editing = '1';
+
+      const left = li.querySelector('.form-check');
+      const label = left?.querySelector('label.form-check-label');
+      const chk = left?.querySelector('input[type="checkbox"]');
+      if (chk) chk.disabled = true;
+
+      const currentText = label?.textContent || '';
+
+      // 建立編輯區塊（輸入框 + 儲存/取消）
+      const editor = document.createElement('div');
+      editor.className = 'input-group input-group-sm';
+      editor.dataset.role = 'editor';
+
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'form-control';
+      input.value = currentText;
+      input.dataset.role = 'edit-input';
+      input.setAttribute('aria-label', 'edit todo text');
+
+      const btnSave = document.createElement('button');
+      btnSave.type = 'button';
+      btnSave.className = 'btn btn-success';
+      btnSave.textContent = '儲存';
+      btnSave.dataset.id = id;
+      btnSave.dataset.action = 'save';
+
+      const btnCancel = document.createElement('button');
+      btnCancel.type = 'button';
+      btnCancel.className = 'btn btn-outline-light';
+      btnCancel.textContent = '取消';
+      btnCancel.dataset.id = id;
+      btnCancel.dataset.action = 'cancel';
+
+      editor.appendChild(input);
+      editor.appendChild(btnSave);
+      editor.appendChild(btnCancel);
+
+      // 隱藏原本的 label，插入 editor
+      label?.classList.add('d-none');
+      left?.appendChild(editor);
+
+      // 聚焦到輸入框
+      input.focus();
+      // 讓 Enter = 儲存、Esc = 取消（體驗更好）
+      input.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Enter') btnSave.click();
+        if (ev.key === 'Escape') btnCancel.click();
+      });
+    }
+
+    // 編輯之 exitEditMode
+    function exitEditMode(li) {
+      if (!li) return;
+      li.dataset.editing = '0';
+
+      const left = li.querySelector('.form-check');
+      const label = left?.querySelector('label.form-check-label');
+      const chk = left?.querySelector('input[type="checkbox"]');
+      const editor = left?.querySelector('[data-role="editor"]');
+
+      if (editor) editor.remove();
+      label?.classList.remove('d-none');
+      if (chk) chk.disabled = false;
+    }
+
+
+    // 繪製待辦事項清單（Bootstrap 版）
+    function render() {
+      list.innerHTML = '';
+
+      const items = todos.slice().sort((a, b) => {
+        const doneDiff = Number(a.completed) - Number(b.completed);
+        if (doneDiff !== 0) return doneDiff;
+        if (a.createdAt != null && b.createdAt != null) {
+          return b.createdAt - a.createdAt;
+        }
+        return 0;
+      });
+
+      if (items.length === 0) {
+        emptyHint.classList.remove('d-none');
+        return;
+      }
+      emptyHint.classList.add('d-none');
+
+      for (const t of items) {
+        const li = document.createElement('li');
+        li.className = 'list-group-item d-flex align-items-center justify-content-between bg-dark';
+
+        const left = document.createElement('div');
+        left.className = 'form-check d-flex align-items-center gap-2 mb-0';
+
+        const chk = document.createElement('input');
+        chk.className = 'form-check-input';
+        chk.type = 'checkbox';
+        chk.checked = !!t.completed;
+        chk.dataset.id = t.id;
+
+        const label = document.createElement('label');
+        label.className = 'form-check-label mb-0 text-white';
+        label.textContent = t.text || '';
+        if (t.completed) label.classList.add('text-decoration-line-through');
+
+        left.appendChild(chk);
+        left.appendChild(label);
+
+        // 右側：動作按鈕區
+        const actions = document.createElement('div');
+
+        // 編輯按鈕        
+        const edit = document.createElement('button');
+        edit.type = 'button';
+        edit.className = 'btn btn-sm btn-warning me-2';
+        edit.textContent = '編輯';
+        edit.dataset.id = t.id;
+        edit.dataset.action = 'edit';
+
+        // 刪除按鈕
+        const del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'btn btn-sm btn-danger';
+        del.textContent = '刪除';
+        del.dataset.id = t.id;
+        del.dataset.action = 'delete';
+
+        actions.appendChild(edit);
+        actions.appendChild(del);
+
+        li.appendChild(left);
+        li.appendChild(actions);
+        list.appendChild(li);
+      }
+
+    }
+
+    // ===== Chat：送訊息（保持最小功能）=====
+    messageForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const message = messageBox.value.trim();
+      if (!message) return;
+
+      if (wsClient.readyState !== WebSocket.OPEN) {
+        showMessageReceived('<span class="text-danger">❌ 尚未連線</span>', true);
+        return;
+      }
+
+      // 立即顯示自己送出的訊息
+      showMessageSent(message);
+      messageBox.value = '';
+
+      // 傳給伺服器（由伺服器轉播給其他人）
+      wsClient.send(JSON.stringify({
+        type: CHAT_MESSAGE_TYPES.NEW_MESSAGE,
+        payload: { message }
+      }));
+    });
+
+
+    // ===== Chat UI helpers =====
+    function showMessageSent(message) { showNewMessage(message, 'sending', false); }
+    function showMessageReceived(message, isSystem = false) { showNewMessage(message, 'receiving', isSystem); }
+    function showNewMessage(message, className, isSystem = false) {
+      const bubble = document.createElement('div');
+      if (isSystem) {
+        bubble.innerHTML = message; // 系統訊息：安全來源
+      } else {
+        bubble.textContent = message; // 使用者輸入：防止 XSS
+      }
+      bubble.className = 'messageBubble';
+      const messageWrapper = document.createElement('div');
+      messageWrapper.className = 'messageWrapper ' + className;
+      messageWrapper.appendChild(bubble);
+      chat.appendChild(messageWrapper);
+      chat.scrollTop = chat.scrollHeight;
+    }
+  </script>
+</body>
+</html>
