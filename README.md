@@ -1,4 +1,4 @@
-# Realtime To-Do List + Chat Room
+# WebSocket Realtime To-Do List + Chat Room
 
 A realtime collaborative **to-do list** and **chat room** built with **Node.js** and **WebSockets**.  
 一個使用 Node.js + WebSocket 打造的 **多人即時同步待辦清單與聊天室** 小專案。
