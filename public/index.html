@@ -79,6 +79,7 @@
     // ===== 狀態 =====
     let wsClient = null;
     let todos = [];
+    const currentUser = "User" + Math.floor(Math.random() * 1000);
 
     // ===== 連線 =====
     const wsProtocol = location.protocol === 'https:' ? 'wss' : 'ws';
@@ -129,6 +130,31 @@
         case TODO_MESSAGE_TYPES.DELETE_ALL_TODO: {
           todos = [];
           render();
+          break;
+        }
+
+        case TODO_MESSAGE_TYPES.TODO_LOCKED: {
+          const { id, user } = payload || {};
+          const idx = todos.findIndex(t => t.id === id);
+          if (idx !== -1) {
+            todos[idx].lockedBy = user;
+            // render();
+
+            // 正在編輯的使用者才需要呼叫 render 重新渲染
+            // 編輯者則不用
+            // 編輯完畢再靠 TODO_UPDATED 這個 case 的 render 刷新即可
+            if (user !== currentUser) render();
+          }
+          break;
+        }
+
+        case TODO_MESSAGE_TYPES.TODO_UNLOCKED: {
+          const { id } = payload || {};
+          const idx = todos.findIndex(t => t.id === id);
+          if (idx !== -1) {
+            todos[idx].lockedBy = null;
+            render();
+          }
           break;
         }
 
@@ -211,6 +237,7 @@
         }
         // 交給伺服器廣播 TODO_UPDATED 後再 render()
         // 為避免跳動，可先離開編輯態（UI 會被後續 render 覆蓋）
+        // unlock 交給這裡
         exitEditMode(li);
         return;
       }
@@ -225,6 +252,14 @@
     function enterEditMode(li, id) {
       if (!li || li.dataset.editing === '1') return;
       li.dataset.editing = '1';
+
+      // ====== 🔒 這裡送 LOCK ======
+      if (wsClient.readyState === WebSocket.OPEN) {
+        wsClient.send(JSON.stringify({
+          type: TODO_MESSAGE_TYPES.LOCK_TODO,
+          payload: { id, user: currentUser }
+        }));
+      }
 
       const left = li.querySelector('.form-check');
       const label = left?.querySelector('label.form-check-label');
@@ -279,6 +314,12 @@
     // 編輯之 exitEditMode
     function exitEditMode(li) {
       if (!li) return;
+
+      const id = Number(li.querySelector('button[data-action="edit"]')?.dataset.id);
+      if (id && wsClient.readyState === WebSocket.OPEN) {
+        wsClient.send(JSON.stringify({ type: TODO_MESSAGE_TYPES.UNLOCK_TODO, payload: { id } }));
+      }
+
       li.dataset.editing = '0';
 
       const left = li.querySelector('.form-check');
@@ -350,6 +391,14 @@
         del.textContent = '刪除';
         del.dataset.id = t.id;
         del.dataset.action = 'delete';
+
+        // 若被鎖定就 disable
+        if (t.lockedBy && t.lockedBy !== currentUser) {
+          label.textContent += `（${t.lockedBy} 編輯中）`;
+          chk.disabled = true;
+          edit.disabled = true;
+          del.disabled = true;
+        }
 
         actions.appendChild(edit);
         actions.appendChild(del);

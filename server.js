@@ -104,7 +104,7 @@ wsServer.on('connection', (socket) => {
       case TODO_MESSAGE_TYPES.ADD_TODO: {
         const text = (payload?.text || '').trim();
         if (!text) return;
-        const todo = { id: nextId++, text, completed: false, createdAt: Date.now() };
+        const todo = { id: nextId++, text, completed: false, createdAt: Date.now(), lockedBy: null };
         todos.push(todo);
         broadcast({ type: TODO_MESSAGE_TYPES.TODO_ADDED, payload: { todo } });
         break;
@@ -147,6 +147,28 @@ wsServer.on('connection', (socket) => {
           type: TODO_MESSAGE_TYPES.DELETE_ALL_TODO,
           payload: {}   // 不需要額外資料
         });
+        break;
+      }
+
+      case TODO_MESSAGE_TYPES.LOCK_TODO: {
+        const id = Number(payload?.id);
+        const user = payload?.user || 'anonymous';
+        const t = todos.find(x => x.id === id);
+        if (!t) return;
+        if (!t.lockedBy) {
+          t.lockedBy = user;
+          t.lockedAt = Date.now();
+          broadcast({ type: TODO_MESSAGE_TYPES.TODO_LOCKED, payload: { id, user } });
+        }
+        break;
+      }
+      case TODO_MESSAGE_TYPES.UNLOCK_TODO: {
+        const id = Number(payload?.id);
+        const t = todos.find(x => x.id === id);
+        if (!t) return;
+        t.lockedBy = null;
+        t.lockedAt = null;
+        broadcast({ type: TODO_MESSAGE_TYPES.TODO_UNLOCKED, payload: { id } });
         break;
       }
 

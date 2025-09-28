@@ -1,30 +1,3 @@
-// (function (global) {
-//   const MESSAGE_TYPES = {
-//     // To‑Do
-//     INIT: 'INIT',
-//     ADD_TODO: 'ADD_TODO',
-//     TODO_ADDED: 'TODO_ADDED',
-//     TOGGLE_TODO: 'TOGGLE_TODO',
-//     UPDATE_TODO: 'UPDATE_TODO',
-//     TODO_UPDATED: 'TODO_UPDATED',
-//     DELETE_TODO: 'DELETE_TODO',
-//     TODO_DELETED: 'TODO_DELETED',
-
-//     // Chat
-//     NEW_USER: 'NEW_USER',
-//     NEW_MESSAGE: 'NEW_MESSAGE',
-//   };
-
-//   const PORT = 8081;
-
-//   // 前端：掛到 window
-//   global.CHAT_CONSTANTS = { MESSAGE_TYPES, PORT };
-
-//   // 後端 (Node.js)：掛到 module.exports
-//   if (typeof module !== 'undefined' && module.exports) {
-//     module.exports = { MESSAGE_TYPES, PORT };
-//   }
-// })(typeof window !== 'undefined' ? window : global);
 (function (global) {
   const TODO_MESSAGE_TYPES = {
     INIT: 'INIT',
@@ -38,12 +11,18 @@
     DELETE_TODO: 'DELETE_TODO',
     TODO_DELETED: 'TODO_DELETED',
     DELETE_ALL_TODO: 'DELETE_ALL_TODO',
+    // 🔒 鎖定相關
+    LOCK_TODO: 'LOCK_TODO',
+    UNLOCK_TODO: 'UNLOCK_TODO',
+    TODO_LOCKED: 'TODO_LOCKED',
+    TODO_UNLOCKED: 'TODO_UNLOCKED',
   };
 
 
   const CHAT_MESSAGE_TYPES = {
     NEW_USER: 'NEW_USER',
     NEW_MESSAGE: 'NEW_MESSAGE',
+    SET_USERNAME: 'SET_USERNAME',
   };
 
 
