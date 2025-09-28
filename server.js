@@ -110,7 +110,7 @@ wsServer.on('connection', (socket) => {
         if (!text) return;
         const todo = { id: nextId++, text, completed: false, createdAt: Date.now(), lockedBy: null };
         todos.push(todo);
-        broadcast({ type: TODO_MESSAGE_TYPES.TODO_ADDED, payload: { todo } });
+        broadcast({ type: TODO_MESSAGE_TYPES.TODO_ADDED, payload: todo });
         break;
       }
       case TODO_MESSAGE_TYPES.TOGGLE_TODO: {
@@ -118,7 +118,7 @@ wsServer.on('connection', (socket) => {
         const t = todos.find(x => x.id === id);
         if (!t) return;
         t.completed = !t.completed;
-        broadcast({ type: TODO_MESSAGE_TYPES.TODO_UPDATED, payload: { todo: t } });
+        broadcast({ type: TODO_MESSAGE_TYPES.TODO_UPDATED, payload: t });
         break;
       }
       case TODO_MESSAGE_TYPES.UPDATE_TODO: {
@@ -134,7 +134,9 @@ wsServer.on('connection', (socket) => {
         t.updatedAt = Date.now();
 
         // 廣播更新完成，讓所有客戶端覆蓋本地資料並 render()
-        broadcast({ type: TODO_MESSAGE_TYPES.TODO_UPDATED, payload: { todo: t } });
+
+
+        broadcast({ type: TODO_MESSAGE_TYPES.TODO_UPDATED, payload: t });
         break;
       }
       case TODO_MESSAGE_TYPES.DELETE_TODO: {
