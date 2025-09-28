@@ -84,6 +84,10 @@ wsServer.on('connection', (socket) => {
   socket.isAlive = true;
   socket.on('pong', heartbeat);
 
+  // 預設名稱
+  socket.username = "User" + Math.floor(Math.random() * 1000);
+
+
   console.log('[WS] client connected');
   // 初次連線 → 傳送目前 todos
   socket.send(JSON.stringify({ type: TODO_MESSAGE_TYPES.INIT, payload: { todos } }));
@@ -173,9 +177,20 @@ wsServer.on('connection', (socket) => {
       }
 
       // ===================== Chat =====================
+      // === 新增：設定使用者名稱 ===
+      case CHAT_MESSAGE_TYPES.SET_USERNAME: {
+        const name = String(payload?.username || '').trim();
+        if (name) socket.username = name;
+        console.log(`[WS] ${socket.username} set name`);
+        break;
+      }
+
       case CHAT_MESSAGE_TYPES.NEW_USER: {
         // 通知其他人有人加入（排除自己）
-        broadcast({ type: CHAT_MESSAGE_TYPES.NEW_USER }, socket);
+        broadcast({
+          type: CHAT_MESSAGE_TYPES.NEW_USER,
+          payload: { username: socket.username }   // 加上 username
+        }, socket);
         break;
       }
 
@@ -183,7 +198,10 @@ wsServer.on('connection', (socket) => {
         const message = String(payload?.message || '').trim();
         if (!message) return;
         // 廣播給其他人（不包含自己）
-        broadcast({ type: CHAT_MESSAGE_TYPES.NEW_MESSAGE, payload: { message } }, socket);
+        broadcast({
+          type: CHAT_MESSAGE_TYPES.NEW_MESSAGE,
+          payload: { message, username: socket.username }   // 加上 username
+        }, socket);
         break;
       }
 

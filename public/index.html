@@ -79,7 +79,11 @@
     // ===== 狀態 =====
     let wsClient = null;
     let todos = [];
-    const currentUser = "User" + Math.floor(Math.random() * 1000);
+    // const currentUser = "User" + Math.floor(Math.random() * 1000);
+    let username = prompt("請輸入使用者名稱：")?.trim();
+    if (!username) {
+      username = "User" + Math.floor(Math.random() * 1000);
+    }
 
     // ===== 連線 =====
     const wsProtocol = location.protocol === 'https:' ? 'wss' : 'ws';
@@ -87,6 +91,12 @@
 
     wsClient.onopen = () => {
       setConnState('Connected', 'success');
+
+      // 傳送使用者名稱
+      wsClient.send(JSON.stringify({
+        type: CHAT_MESSAGE_TYPES.SET_USERNAME,
+        payload: { username }
+      }));
 
       // 廣播有人加入聊天室（可選）
       wsClient.send(JSON.stringify({ type: CHAT_MESSAGE_TYPES.NEW_USER }));
@@ -160,11 +170,11 @@
 
         // ===== Chat =====
         case CHAT_MESSAGE_TYPES.NEW_USER:
-          showMessageReceived('<span class="badge rounded-pill text-bg-success">🫶 有人加入聊天室</span>', true);
+          showMessageReceived(`<span class="badge rounded-pill text-bg-success">🫶 ${payload?.username} 加入聊天室</span>`, true);
           break;
 
         case CHAT_MESSAGE_TYPES.NEW_MESSAGE:
-          showMessageReceived(payload?.message ?? '');
+          showMessageReceived(`${payload?.username ?? '匿名'}: ${payload?.message ?? ''}`);
           break;
 
         default:
